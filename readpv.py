@@ -1,4 +1,5 @@
 #run with python 2.7 due to issues  with b' and split
+#
 
 import socket
 import time
@@ -32,12 +33,38 @@ def invErrMode(bitPos):
         8 : "Backfeed"
     }
     return bitNum[bitPos]
-    
 
-#print (invErrMode(3))    
-def getErrString(code):
-    a=""        
+def invWarnMode(bitPos):
+    bitNum={
+        1 : "AC Input Freq High",
+        2 : "AC Input Freq Low",
+        3 : "Input VAC High",
+        4 : "Input VAC Low",
+        5 : "Buy Amps > Input size",
+        6 : "Temp Sensor Failed",
+        7 : "Comm Error",
+        8 : "Fan Failure"        
+    }
+    return bitNum[bitPos]
+
+def invMiscMode(bitPos):
+    bitNum={
+        1 : "230V unit",
+        2 : "Reserved",
+        3 : "Reserved",
+        4 : "Reserved",
+        5 : "Reserved",
+        6 : "Reserved",
+        7 : "Reserved",
+        8 :  "Aux Output On"
+    }
+    return bitNum[bitPos]
+
+
+def getErrString(code, type):
+    errStr=""
     b=bin(code)[2:].zfill(8)
+    a=""        
     #invert binary string to correspond to specs
     a=str(b[::-1]) 
     errStr = ""
@@ -46,7 +73,12 @@ def getErrString(code):
     for pos in range (bit0,bit8):
         ipos = int(pos)
         if str(a[ipos])  == str(1):
-            errStr += invErrMode(ipos+1) + ", "
+            if type==1:
+                errStr += invErrMode(ipos+1) + ", "
+            if type == 2:
+               errStr += invWarnMode(ipos+1) + ", "
+            if type == 3:
+                errStr += invMiscMode(ipos+1) + ", "
     return errStr
  
 def sum_digits(str1):
@@ -81,14 +113,30 @@ def decode_inverter_data(inverterList):
             
         code=invDataDict[inverterList[0]]["Op Mode"]
         invDataDict[inverterList[0]]["Op Mode"]=inverterOpMode(code)
-
+        
+        code = invDataDict[inverterList[0]]["AC Mode"]
+        invDataDict[inverterList[0]]["AC Mode"]=inverterACMode(code)
+        
         errCode = invDataDict[inverterList[0]]["Error Mode"]
         if errCode == "000":
             err="OK"
         else:
-            err = getErrString(int(errCode)) 
+            err = getErrString(int(errCode),1) 
         invDataDict[inverterList[0]]["Error Mode"]=err
         
+        warnCode = invDataDict[inverterList[0]]["Warn Mode"]
+        if warnCode == "000":
+            err="OK"
+        else:
+            err = getErrString(int(warnCode),2)
+        invDataDict[inverterList[0]]["Warn Mode"]=err
+        
+        miscCode = invDataDict[inverterList[0]]["Misc"]
+        if warnCode == "000":
+            err="OK"
+        else:
+            err = getErrString(int(warnCode),3)
+        invDataDict[inverterList[0]]["Misc"]=err
         
         print (invDataDict[inverterList[0]])
 
@@ -131,7 +179,17 @@ def inverterOpMode(opModeCode):
         "92" : "Comm Error"
     }
     return opCode.get(opModeCode)
-                
+
+def inverterACMode(ACModeCode):
+    opCode = {
+        "00" : "No AC",
+        "01" : "AC Drop",
+        "02" :  "AC Use"
+        }
+    return opCode.get(ACModeCode)
+
+#*********************************************************   
+             
 try:
     while 1:
         data = sock.recv(512)
